@@ -9,9 +9,11 @@ const BOARD_SIZE = 3;
 
 const PLAYER_INFO = {
   PLAYER_ONE: {
+    name: 'Player 1 (X)',
     marker: 'X'
   },
   PLAYER_TWO: {
+    name: 'Player 2 (O)',
     marker: 'O'
   }
 };
@@ -26,7 +28,8 @@ export default class Game extends React.Component {
       hasError: false,
       errorMessage: '',
 
-      playerWhosTurnItIs: PLAYER_INFO.PLAYER_TWO
+      playerWhosTurnItIs: PLAYER_INFO.PLAYER_TWO,
+      playerWhoHasWon: null
     };
 
     this.boardSize = BOARD_SIZE;
@@ -45,15 +48,18 @@ export default class Game extends React.Component {
     } else {
       return (
         <div className="game">
+          
           <div className="game-board">
             <Board
               boardSize={this.boardSize}
               playerWhosTurnItIs={this.state.playerWhosTurnItIs}
               squareClickHandler={() => this.onTurn()}
+              playerHasWonCallback={(winner) => this.playerHasWonCallback(winner)}
             />
           </div>
+
           <div className="game-info">
-            <div className="status">Next player: {this.state.playerWhosTurnItIs.marker}</div>
+            <div className="status">{this.renderStatusMessage()}</div>
             <div className="move-history-list">
               {this.renderMoveHistoryList()}
             </div>
@@ -62,6 +68,14 @@ export default class Game extends React.Component {
       );
     }
   };
+
+  renderStatusMessage() {
+    if (this.state.playerWhoHasWon === null) {
+      return `Next player: ${this.state.playerWhosTurnItIs.marker}`;
+    } else {
+      return `Winning player: ${this.state.playerWhosTurnItIs.name}`;
+    }
+  }
 
   renderMoveHistoryList() {
     const moveHistoryList = [];
@@ -104,8 +118,7 @@ export default class Game extends React.Component {
 
   onTurn() {
     this.updatePlayerWhosTurnItIs();
-
-    // TODO Check victory conditions on board
+    // TODO: Check if anyone has won
   }
 
   /**
@@ -131,6 +144,27 @@ export default class Game extends React.Component {
 
     } else {
       return undefined;
+    }
+  }
+
+  playerHasWonCallback(playerMarker) {
+    console.log(`playerHasWonCallback: Signalling that player with marker ${playerMarker} won.`);
+
+    if (PLAYER_INFO.PLAYER_ONE.marker === playerMarker) {
+      this.setState({
+        playerWhoHasWon: PLAYER_INFO.PLAYER_ONE
+      });
+
+    } else if (PLAYER_INFO.PLAYER_TWO.marker === playerMarker) {
+      this.setState({
+        playerWhoHasWon: PLAYER_INFO.PLAYER_TWO
+      });
+
+    } else {
+      this.setState({
+        hasError: true,
+        errorMessage: `Player with unknown marker ${playerMarker} won.`
+      });
     }
   }
 }
