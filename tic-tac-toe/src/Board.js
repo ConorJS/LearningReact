@@ -69,9 +69,15 @@ export default class Board extends React.Component {
   squareClickHandler(x, y) {
     console.log(`Clicked x=${x}, y=${y}`);
 
-    this.setSquare(x, y, this.props.playerWhosTurnItIs.marker);
+    if (this.getSquare(x, y) == null) {
+      // Play out the turn if the square isn't occupied.
+      this.setSquare(x, y, this.props.playerWhosTurnItIs.marker);
+      this.props.squareClickHandler();
 
-    this.props.squareClickHandler();
+    } else {
+      // Do nothing if the square is already occupied; an invalid move was selected.
+      console.log(`Square x=${x}, y=${y} is already occupied with another player's marker!`)
+    } 
   }
 
   getSquare(x, y) {
