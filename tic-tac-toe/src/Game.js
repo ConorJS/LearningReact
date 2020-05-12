@@ -24,17 +24,18 @@ export default class Game extends React.Component {
   constructor(props) {
     super(props);
 
+    this.boardSize = BOARD_SIZE;
+
     this.state = {
       hasError: false,
       errorMessage: '',
 
       playerWhosTurnItIs: PLAYER_INFO.PLAYER_TWO,
-      playerWhoHasWon: null
+      playerWhoHasWon: null,
+
+      moves: Array(this.boardSize),
+      selectedMove: 0
     };
-
-    this.boardSize = BOARD_SIZE;
-
-    this.moves = [];
   };
 
   //== render =========================================================================================================
@@ -48,13 +49,14 @@ export default class Game extends React.Component {
     } else {
       return (
         <div className="game">
-          
+
           <div className="game-board">
             <Board
               boardSize={this.boardSize}
               playerWhosTurnItIs={this.state.playerWhosTurnItIs}
               squareClickHandler={() => this.onTurn()}
               playerHasWonCallback={(winner) => this.playerHasWonCallback(winner)}
+              gameInProgress={this.state.playerWhoHasWon === null}
             />
           </div>
 
@@ -73,41 +75,36 @@ export default class Game extends React.Component {
     if (this.state.playerWhoHasWon === null) {
       return `Next player: ${this.state.playerWhosTurnItIs.marker}`;
     } else {
-      return `Winning player: ${this.state.playerWhosTurnItIs.name}`;
+      return `Winning player: ${this.state.playerWhoHasWon.name}`;
     }
   }
 
   renderMoveHistoryList() {
     const moveHistoryList = [];
 
-    for (let i = 0; i < this.moves.length; i++) {
-      moveHistoryList.push(this.renderMoveHistoryItem(this.moves[i]));
+    for (let i = 0; i < this.state.moves.length; i++) {
+      let move = this.state.moves[i];
+      if (!!move) {
+        moveHistoryList.push(this.renderMoveHistoryItem(move, i));
+      }
     }
 
     return moveHistoryList;
   };
 
-  renderMoveHistoryItem(moveNumber) {
-    const moveDescription = moveNumber === 0 ? "game start" : ("move #" + moveNumber);
+  renderMoveHistoryItem(move, index) {
+    const moveDescription = index === 0 ? "game start" : ("move #" + index);
 
+    // TODO: Move histories don't have unique keys...
     return (
       <div className="move-history-item">
-        <span>{moveNumber + 1}: </span>
+        <span>{index + 1}: </span>
         <button>Go to {moveDescription}</button>
       </div>
     );
   };
 
   //== helpers ========================================================================================================
-
-  createMove(x, y) {
-    if (x < 0 || x >= this.boardSize || y < 0 || y >= this.boardSize) {
-      this.makeError(`Co-ordinates [${x},${y}] fall outside of a ${this.boardSize}-sized board.`);
-      return undefined;
-    }
-
-    return { "x": x, "y": y };
-  };
 
   makeError(message) {
     this.setState({
@@ -116,17 +113,29 @@ export default class Game extends React.Component {
     });
   };
 
-  onTurn() {
-    this.updatePlayerWhosTurnItIs();
-    // TODO: Check if anyone has won
-  }
-
   /**
-   * Updates the player turn state (from the player whos turn it is now, to the next player)
+   * Updates the player turn state (from the player whos turn it is now, to the next player).
+   * Stores the move history.
    */
-  updatePlayerWhosTurnItIs() {
+  onTurn(x, y, playerMarker) {
+    // In normal gameplay (where the user hasn't click move history buttons), we might be on 
+    // move 4 of a game, and the 'selectedMove' counter will be as such. However, the user 
+    // can click to view a previous move (say, move 2), and the board will update, but the moves
+    // visible will remain the same, until a move is played, and then all of the history down to
+    // the last two moves will be erased, and the *new* move 3 will be added to the move list.
+    let movesTemp;
+    if (this.state.selectedMove === this.state.moves.length - 1) {
+      movesTemp = this.state.moves.splice();
+    } else {
+      movesTemp = this.state.moves.splice(0, this.state.selectedMove);
+    }
+
+    movesTemp.push(this.createMoveHistoryItem(x, y, playerMarker));
+
     this.setState({
-      playerWhosTurnItIs: this.nextPlayer(this.state.playerWhosTurnItIs)
+      playerWhosTurnItIs: this.nextPlayer(this.state.playerWhosTurnItIs),
+      moves: movesTemp,
+      selectedMove: this.state.selectedMove + 1
     });
   }
 
@@ -145,6 +154,21 @@ export default class Game extends React.Component {
     } else {
       return undefined;
     }
+  }
+
+  /**
+   * Creates a move history item representing the move number, position and the player who made the move.
+   * 
+   * @param {Number} x The x-coordinate that the move took place on.
+   * @param {Number} y The y-coordinate that the move took place on.
+   * @param {String} playerMarker The marker of the player that made the move.
+   */
+  createMoveHistoryItem(x, y, playerMarker) {
+    return {
+      x: x,
+      y: y,
+      playerMarker: playerMarker
+    };
   }
 
   playerHasWonCallback(playerMarker) {

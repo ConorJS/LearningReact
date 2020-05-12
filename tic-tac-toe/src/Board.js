@@ -69,13 +69,17 @@ export default class Board extends React.Component {
   squareClickHandler(x, y) {
     console.log(`Clicked x=${x}, y=${y}`);
 
-    if (this.getSquare(x, y) == null) {
-      // Play out the turn if the square isn't occupied.
-      this.setSquare(x, y, this.props.playerWhosTurnItIs.marker, this.afterSquarePlacedCallback);
+    if (!this.props.gameInProgress) {
+      // Do nothing if the game is already over!
+      console.log(`Can't play move at x=${x}, y=${y} as the game is over!`);
+
+    } else if (this.getSquare(x, y) != null) {
+      // Do nothing if the square is already occupied; an invalid move was selected.
+      console.log(`Square x=${x}, y=${y} is already occupied with another player's marker!`);
 
     } else {
-      // Do nothing if the square is already occupied; an invalid move was selected.
-      console.log(`Square x=${x}, y=${y} is already occupied with another player's marker!`)
+      // Play out the turn if the square isn't occupied.
+      this.setSquare(x, y, this.props.playerWhosTurnItIs.marker, this.afterSquarePlacedCallback);
     }
   }
 
@@ -114,13 +118,17 @@ export default class Board extends React.Component {
     if (winningMarker !== null) {
       return winningMarker;
     }
-    
+
     winningMarker = this.getCompleteStraightLineIfPresent(false);
     if (winningMarker !== null) {
       return winningMarker;
     }
 
-    // TODO: Diagonals
+    winningMarker = this.getCompleteDiagonalLineIfPresent();
+    if (winningMarker !== null) {
+      return winningMarker;
+    }
+
     return null;
   }
 
@@ -163,6 +171,75 @@ export default class Board extends React.Component {
     }
 
     // No complete line was found.
+    return null;
+  }
+
+  /**
+   * Gets a complete straight, diagonal line. 
+   * 
+   * There can only be two of these in a square-shaped board:
+   * 1) From 0, 0 to n, n
+   * 2) From 0, n to n, 0
+   * (where n = square board size)
+   */
+  getCompleteDiagonalLineIfPresent() {
+    // Line starting at [0, 0]
+    let firstDiagonalStillPossible = true;
+    let firstDiagonalMarker = null;
+
+    // Line starting at [0, n]
+    let secondDiagonalStillPossible = true;
+    let secondDiagonalMarker = null;
+
+    // Check both lines in the same loop
+    const boardSize = this.props.boardSize;
+    for (let i = 0; i < boardSize; i++) {
+      // Check the line starting at 0, 0 (x = i, y = i)
+      let markerInSquare = this.getSquare(i, i);
+
+      if (markerInSquare === null) {
+        // The line can't be a winning line if there is a blank square in it.
+        firstDiagonalStillPossible = false;
+
+      } else if (firstDiagonalMarker === null) {
+        // The marker in the square we are checking is not null, 
+        // and we must be on the first iteration (we haven't set 'markerThatCouldWin' yet), so set this value now.
+        firstDiagonalMarker = markerInSquare;
+
+      } else if (markerInSquare !== firstDiagonalMarker) {
+        // The line has only had one type of character (so far), but this has been interrupted.
+        firstDiagonalStillPossible = false;
+      }
+
+      // Check the line starting at 0, n (x = i, y = n-1-i) (n-1 due to 0-indexing meaning n-1 is max. index)
+      markerInSquare = this.getSquare(i, boardSize - 1 - i);
+
+      if (markerInSquare === null) {
+        // The line can't be a winning line if there is a blank square in it.
+        secondDiagonalStillPossible = false;
+
+      } else if (secondDiagonalMarker === null) {
+        // The marker in the square we are checking is not null, 
+        // and we must be on the first iteration (we haven't set 'markerThatCouldWin' yet), so set this value now.
+        secondDiagonalMarker = markerInSquare;
+
+      } else if (markerInSquare !== secondDiagonalMarker) {
+        // The line has only had one type of character (so far), but this has been interrupted.
+        secondDiagonalStillPossible = false;
+      }
+    }
+
+    const messageStart = 'Winning move (diagonal) found from '
+    if (firstDiagonalStillPossible) {
+      console.log(`${messageStart}${firstDiagonalMarker}: [0, 0] -> [${boardSize}, ${boardSize}]`);
+      return firstDiagonalMarker;
+    }
+
+    if (secondDiagonalStillPossible) {
+      console.log(`${messageStart}${secondDiagonalMarker}: [0, ${boardSize}] -> [${boardSize}, 0]`);
+      return secondDiagonalMarker;
+    }
+
     return null;
   }
 }
