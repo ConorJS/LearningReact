@@ -1,5 +1,3 @@
-// TODO: Can't go to game start (move 0)
-
 //== imports ==========================================================================================================
 
 import React from 'react';
@@ -20,6 +18,8 @@ const PLAYER_INFO = {
   }
 };
 
+const INITIAL_PLAYER = PLAYER_INFO.PLAYER_TWO;
+
 //== class init =======================================================================================================
 
 export default class Game extends React.Component {
@@ -32,7 +32,7 @@ export default class Game extends React.Component {
       hasError: false,
       errorMessage: '',
 
-      playerWhosTurnItIs: PLAYER_INFO.PLAYER_TWO,
+      playerWhosTurnItIs: INITIAL_PLAYER,
       playerWhoHasWon: null,
 
       moves: [],
@@ -90,6 +90,9 @@ export default class Game extends React.Component {
   renderMoveHistoryList() {
     const moveHistoryList = [];
 
+    // Add the inital state as a 'move' of sorts. This will allow the user to return to the start of the game.
+    moveHistoryList.push(this.renderMoveHistoryItem(null, 0));
+
     for (let i = 0; i < this.state.moves.length; i++) {
       let move = this.state.moves[i];
       if (!!move) {
@@ -105,7 +108,7 @@ export default class Game extends React.Component {
     const moveDescription = index === 0 ? "game start" : ("move #" + index);
 
     return (
-      <div 
+      <div
         className="move-history-item"
         key={`moveHistoryItem${index}`}
         onClick={() => this.jumpToMove(index)}>
@@ -229,10 +232,19 @@ export default class Game extends React.Component {
    * @param {*} moveHistoryIndex The index of the move history item containing the move history for the target move.
    */
   jumpToMove(moveHistoryIndex) {
-    this.setState({
-      selectedMove: moveHistoryIndex,
-      playerWhosTurnItIs: this.nextPlayer(this.playerFromMarker(this.state.moves[moveHistoryIndex - 1].playerMarker))
-    }, this.checkAndApplyWinConditions);
+    // Address special case (initial state, move 'zero').
+    if (moveHistoryIndex === 0) {
+      this.setState({
+        selectedMove: 0,
+        playerWhosTurnItIs: INITIAL_PLAYER
+      }, this.clearVictoryFlagIfPresent);
+
+    } else {
+      this.setState({
+        selectedMove: moveHistoryIndex,
+        playerWhosTurnItIs: this.nextPlayer(this.playerFromMarker(this.state.moves[moveHistoryIndex - 1].playerMarker))
+      }, this.checkAndApplyWinConditions);
+    }
   }
 
   playerFromMarker(marker) {
@@ -290,9 +302,9 @@ export default class Game extends React.Component {
       for (let squareInline = 0; squareInline < this.boardSize; squareInline++) {
         if (lineCouldStillBeWinningMove) {
           // The line number corresponds with the x co-ordinate for column checking, and y for row checking.
-          let markerInSquare = !!columns ? 
-              this.getMarkerDisplayedOnSquare(line, squareInline) : 
-              this.getMarkerDisplayedOnSquare(squareInline, line);
+          let markerInSquare = !!columns ?
+            this.getMarkerDisplayedOnSquare(line, squareInline) :
+            this.getMarkerDisplayedOnSquare(squareInline, line);
 
           if (markerInSquare === null) {
             // The line can't be a winning line if there is a blank square in it.
