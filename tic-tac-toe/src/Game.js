@@ -223,7 +223,7 @@ export default class Game extends React.Component {
   jumpToMove(moveHistoryIndex) {
     this.setState({
       selectedMove: moveHistoryIndex,
-      playerWhosTurnItIs: this.playerFromMarker(this.state.moves[moveHistoryIndex].playerMarker)
+      playerWhosTurnItIs: this.nextPlayer(this.playerFromMarker(this.state.moves[moveHistoryIndex - 1].playerMarker))
     });
   }
 
