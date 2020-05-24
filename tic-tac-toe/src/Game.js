@@ -51,9 +51,9 @@ export default class Game extends React.Component {
   //== render =========================================================================================================
 
   render() {
-    if (this.props.hasError) {
+    if (this.state.hasError) {
       return (
-        <div>Error: {!this.props.errorMessage ? "<No message>" : this.props.errorMessage}</div>
+        <div>Error: {!this.state.errorMessage ? "<No message>" : this.state.errorMessage}</div>
       );
 
     } else {
@@ -185,7 +185,7 @@ export default class Game extends React.Component {
       return PLAYER_INFO.PLAYER_ONE;
 
     } else {
-      return undefined;
+      this.makeError(`Current player: ${currentPlayer}, nextPlayer(...) doesn't know who follows them.`);
     }
   }
 
@@ -222,8 +222,19 @@ export default class Game extends React.Component {
    */
   jumpToMove(moveHistoryIndex) {
     this.setState({
-      selectedMove: moveHistoryIndex
+      selectedMove: moveHistoryIndex,
+      playerWhosTurnItIs: this.playerFromMarker(this.state.moves[moveHistoryIndex].playerMarker)
     });
+  }
+
+  playerFromMarker(marker) {
+    if (marker === PLAYER_INFO.PLAYER_ONE.marker) {
+      return PLAYER_INFO.PLAYER_ONE;
+    } else if (marker === PLAYER_INFO.PLAYER_TWO.marker) {
+      return PLAYER_INFO.PLAYER_TWO;
+    }
+
+    this.makeError(`No known player corresponding with marker ${marker}`);
   }
 
   //== helpers: victory conditions ====================================================================================
@@ -394,6 +405,6 @@ export default class Game extends React.Component {
    * Get the array of moves that should currently be displayed on the board.
    */
   getMovesToDisplay() {
-    return this.state.moves.slice(0, this.state.selectedMove)
+    return this.state.moves.slice(0, this.state.selectedMove);
   }
 }
