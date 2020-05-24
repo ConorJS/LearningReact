@@ -1,3 +1,6 @@
+// TODO: playerWhosTurnItIs state is not updated when we move across history
+// TODO: gameInProgress state is not update when we move across history
+
 //== imports ==========================================================================================================
 
 import React from 'react';
@@ -33,9 +36,16 @@ export default class Game extends React.Component {
       playerWhosTurnItIs: PLAYER_INFO.PLAYER_TWO,
       playerWhoHasWon: null,
 
-      moves: Array(this.boardSize),
+      moves: [],
       selectedMove: 0
     };
+  };
+
+  makeError(message) {
+    this.setState({
+      hasError: true,
+      errorMessage: message
+    });
   };
 
   //== render =========================================================================================================
@@ -52,10 +62,9 @@ export default class Game extends React.Component {
 
           <div className="game-board">
             <Board
+              movesToDisplay={this.getMovesToDisplay()}
               boardSize={this.boardSize}
-              playerWhosTurnItIs={this.state.playerWhosTurnItIs}
-              squareClickHandler={() => this.onTurn()}
-              playerHasWonCallback={(winner) => this.playerHasWonCallback(winner)}
+              markerPlacedCallback={(x, y) => this.onTurn(x, y, this.state.playerWhosTurnItIs.marker)}
               gameInProgress={this.state.playerWhoHasWon === null}
             />
           </div>
@@ -85,7 +94,8 @@ export default class Game extends React.Component {
     for (let i = 0; i < this.state.moves.length; i++) {
       let move = this.state.moves[i];
       if (!!move) {
-        moveHistoryList.push(this.renderMoveHistoryItem(move, i));
+        // Move indices are 1-indexed.
+        moveHistoryList.push(this.renderMoveHistoryItem(move, i + 1));
       }
     }
 
@@ -95,23 +105,18 @@ export default class Game extends React.Component {
   renderMoveHistoryItem(move, index) {
     const moveDescription = index === 0 ? "game start" : ("move #" + index);
 
-    // TODO: Move histories don't have unique keys...
     return (
-      <div className="move-history-item">
-        <span>{index + 1}: </span>
+      <div 
+        className="move-history-item"
+        key={`moveHistoryItem${index}`}
+        onClick={() => this.jumpToMove(index)}>
+        <span>{index}: </span>
         <button>Go to {moveDescription}</button>
       </div>
     );
   };
 
-  //== helpers ========================================================================================================
-
-  makeError(message) {
-    this.setState({
-      hasError: true,
-      errorMessage: message
-    });
-  };
+  //== helpers: state transitions =====================================================================================
 
   /**
    * Updates the player turn state (from the player whos turn it is now, to the next player).
@@ -124,10 +129,10 @@ export default class Game extends React.Component {
     // visible will remain the same, until a move is played, and then all of the history down to
     // the last two moves will be erased, and the *new* move 3 will be added to the move list.
     let movesTemp;
-    if (this.state.selectedMove === this.state.moves.length - 1) {
-      movesTemp = this.state.moves.splice();
+    if (this.state.selectedMove === this.state.moves.length) {
+      movesTemp = this.state.moves.slice(0);
     } else {
-      movesTemp = this.state.moves.splice(0, this.state.selectedMove);
+      movesTemp = this.state.moves.slice(0, this.state.selectedMove);
     }
 
     movesTemp.push(this.createMoveHistoryItem(x, y, playerMarker));
@@ -136,7 +141,35 @@ export default class Game extends React.Component {
       playerWhosTurnItIs: this.nextPlayer(this.state.playerWhosTurnItIs),
       moves: movesTemp,
       selectedMove: this.state.selectedMove + 1
-    });
+    }, this.checkWinConditions);
+  }
+
+  checkWinConditions() {
+    let winningMarker = this.getMarkerUsedInCompleteLineIfPresent();
+    if (winningMarker != null) {
+      this.playerHasWon(winningMarker);
+    }
+  }
+
+  playerHasWon(playerMarker) {
+    console.log(`playerHasWon: Player with marker ${playerMarker} won.`);
+
+    if (PLAYER_INFO.PLAYER_ONE.marker === playerMarker) {
+      this.setState({
+        playerWhoHasWon: PLAYER_INFO.PLAYER_ONE
+      });
+
+    } else if (PLAYER_INFO.PLAYER_TWO.marker === playerMarker) {
+      this.setState({
+        playerWhoHasWon: PLAYER_INFO.PLAYER_TWO
+      });
+
+    } else {
+      this.setState({
+        hasError: true,
+        errorMessage: `Player with unknown marker ${playerMarker} won.`
+      });
+    }
   }
 
   /**
@@ -156,6 +189,8 @@ export default class Game extends React.Component {
     }
   }
 
+  //== helpers: history buttons =======================================================================================
+
   /**
    * Creates a move history item representing the move number, position and the player who made the move.
    * 
@@ -171,24 +206,194 @@ export default class Game extends React.Component {
     };
   }
 
-  playerHasWonCallback(playerMarker) {
-    console.log(`playerHasWonCallback: Signalling that player with marker ${playerMarker} won.`);
+  /**
+   * Make the game jump to a move. 
+   * 
+   * This causes a disconnect between the usually-aligned 'moves' and 'movesToDisplay()', as we want to 
+   * continue to track all the moves made thus far (even those in the future of where we jumped to), 
+   * until another move is made (post-jump), at which point future moves are expected to be erased, and 
+   * 'moves' and 'movesToDisplay()' are once again, aligned.
+   * 
+   * tl;dr: 
+   * This does *not* erase the move history! 
+   * This doesn't happen until a move has been played *after* jumping back/forward in time (as referenced above).
+   * 
+   * @param {*} moveHistoryIndex The index of the move history item containing the move history for the target move.
+   */
+  jumpToMove(moveHistoryIndex) {
+    this.setState({
+      selectedMove: moveHistoryIndex
+    });
+  }
 
-    if (PLAYER_INFO.PLAYER_ONE.marker === playerMarker) {
-      this.setState({
-        playerWhoHasWon: PLAYER_INFO.PLAYER_ONE
-      });
+  //== helpers: victory conditions ====================================================================================
 
-    } else if (PLAYER_INFO.PLAYER_TWO.marker === playerMarker) {
-      this.setState({
-        playerWhoHasWon: PLAYER_INFO.PLAYER_TWO
-      });
-
-    } else {
-      this.setState({
-        hasError: true,
-        errorMessage: `Player with unknown marker ${playerMarker} won.`
-      });
+  /**
+   * If there is complete line of markers from the board (i.e a winning game state for the player holding said markers) 
+   * then this returns the marker that this line is composed of. 
+   * 
+   * If nobody has a complete line (i.e. the game is not yet over), this returns null.
+   * 
+   * This looks at displayed markers only.
+   */
+  getMarkerUsedInCompleteLineIfPresent() {
+    let winningMarker = this.getCompleteStraightLineIfPresent(true);
+    if (winningMarker !== null) {
+      return winningMarker;
     }
+
+    winningMarker = this.getCompleteStraightLineIfPresent(false);
+    if (winningMarker !== null) {
+      return winningMarker;
+    }
+
+    winningMarker = this.getCompleteDiagonalLineIfPresent();
+    if (winningMarker !== null) {
+      return winningMarker;
+    }
+
+    return null;
+  }
+
+  /**
+   * Gets a complete straight line if present.
+   * 
+   * This looks at displayed markers only.
+   * 
+   * @param {boolean} columns If we're looking for columns (else, rows)
+   */
+  getCompleteStraightLineIfPresent(columns) {
+    // Check for complete lines (columns )
+    for (let line = 0; line < this.boardSize; line++) {
+
+      let lineCouldStillBeWinningMove = true;
+      let markerThatCouldWin = null;
+      for (let squareInline = 0; squareInline < this.boardSize; squareInline++) {
+        if (lineCouldStillBeWinningMove) {
+          // The line number corresponds with the x co-ordinate for column checking, and y for row checking.
+          let markerInSquare = !!columns ? 
+              this.getMarkerDisplayedOnSquare(line, squareInline) : 
+              this.getMarkerDisplayedOnSquare(squareInline, line);
+
+          if (markerInSquare === null) {
+            // The line can't be a winning line if there is a blank square in it.
+            lineCouldStillBeWinningMove = false;
+
+          } else if (markerThatCouldWin === null) {
+            // The marker in the square we are checking is not null, 
+            // and we must be on the first iteration (we haven't set 'markerThatCouldWin' yet), so set this value now.
+            markerThatCouldWin = markerInSquare;
+
+          } else if (markerInSquare !== markerThatCouldWin) {
+            // The line has only had one type of character (so far), but this has been interrupted.
+            lineCouldStillBeWinningMove = false;
+          }
+        }
+      }
+
+      if (lineCouldStillBeWinningMove) {
+        console.log(`Winning move found from ${markerThatCouldWin}: ${columns ? 'column' : 'row'} ${line}`);
+        return markerThatCouldWin;
+      }
+    }
+
+    // No complete line was found.
+    return null;
+  }
+
+  /**
+   * Gets a complete straight, diagonal line. 
+   * 
+   * This looks at displayed markers only.
+   * 
+   * There can only be two of these in a square-shaped board:
+   * 1) From 0, 0 to n, n
+   * 2) From 0, n to n, 0
+   * (where n = square board size)
+   */
+  getCompleteDiagonalLineIfPresent() {
+    // Line starting at [0, 0]
+    let firstDiagonalStillPossible = true;
+    let firstDiagonalMarker = null;
+
+    // Line starting at [0, n]
+    let secondDiagonalStillPossible = true;
+    let secondDiagonalMarker = null;
+
+    // Check both lines in the same loop
+    const boardSize = this.boardSize;
+    for (let i = 0; i < boardSize; i++) {
+      // Check the line starting at 0, 0 (x = i, y = i)
+      let markerInSquare = this.getMarkerDisplayedOnSquare(i, i);
+
+      if (markerInSquare === null) {
+        // The line can't be a winning line if there is a blank square in it.
+        firstDiagonalStillPossible = false;
+
+      } else if (firstDiagonalMarker === null) {
+        // The marker in the square we are checking is not null, 
+        // and we must be on the first iteration (we haven't set 'markerThatCouldWin' yet), so set this value now.
+        firstDiagonalMarker = markerInSquare;
+
+      } else if (markerInSquare !== firstDiagonalMarker) {
+        // The line has only had one type of character (so far), but this has been interrupted.
+        firstDiagonalStillPossible = false;
+      }
+
+      // Check the line starting at 0, n (x = i, y = n-1-i) (n-1 due to 0-indexing meaning n-1 is max. index)
+      markerInSquare = this.getMarkerDisplayedOnSquare(i, boardSize - 1 - i);
+
+      if (markerInSquare === null) {
+        // The line can't be a winning line if there is a blank square in it.
+        secondDiagonalStillPossible = false;
+
+      } else if (secondDiagonalMarker === null) {
+        // The marker in the square we are checking is not null, 
+        // and we must be on the first iteration (we haven't set 'markerThatCouldWin' yet), so set this value now.
+        secondDiagonalMarker = markerInSquare;
+
+      } else if (markerInSquare !== secondDiagonalMarker) {
+        // The line has only had one type of character (so far), but this has been interrupted.
+        secondDiagonalStillPossible = false;
+      }
+    }
+
+    const messageStart = 'Winning move (diagonal) found from '
+    if (firstDiagonalStillPossible) {
+      console.log(`${messageStart}${firstDiagonalMarker}: [0, 0] -> [${boardSize}, ${boardSize}]`);
+      return firstDiagonalMarker;
+    }
+
+    if (secondDiagonalStillPossible) {
+      console.log(`${messageStart}${secondDiagonalMarker}: [0, ${boardSize}] -> [${boardSize}, 0]`);
+      return secondDiagonalMarker;
+    }
+
+    return null;
+  }
+
+  //== helpers: squares ===============================================================================================
+
+  getMarkerDisplayedOnSquare(x, y) {
+    // We're only interested in what's currently being displayed on the board, 
+    // not the markers that might be still tracked in move history.
+    let movesToDisplay = this.getMovesToDisplay();
+
+    for (let i = 0; i < movesToDisplay.length; i++) {
+      let move = movesToDisplay[i];
+      if (move.x === x && move.y === y) {
+        return move.playerMarker;
+      }
+    }
+
+    // The square hasn't had a marker placed on it.
+    return null;
+  }
+
+  /**
+   * Get the array of moves that should currently be displayed on the board.
+   */
+  getMovesToDisplay() {
+    return this.state.moves.slice(0, this.state.selectedMove)
   }
 }
