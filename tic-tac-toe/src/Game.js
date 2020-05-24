@@ -1,5 +1,4 @@
-// TODO: playerWhosTurnItIs state is not updated when we move across history
-// TODO: gameInProgress state is not update when we move across history
+// TODO: Can't go to game start (move 0)
 
 //== imports ==========================================================================================================
 
@@ -141,14 +140,23 @@ export default class Game extends React.Component {
       playerWhosTurnItIs: this.nextPlayer(this.state.playerWhosTurnItIs),
       moves: movesTemp,
       selectedMove: this.state.selectedMove + 1
-    }, this.checkWinConditions);
+    }, this.checkAndApplyWinConditions);
   }
 
-  checkWinConditions() {
+  checkAndApplyWinConditions() {
     let winningMarker = this.getMarkerUsedInCompleteLineIfPresent();
+
     if (winningMarker != null) {
       this.playerHasWon(winningMarker);
+    } else {
+      this.clearVictoryFlagIfPresent();
     }
+  }
+
+  clearVictoryFlagIfPresent() {
+    this.setState({
+      playerWhoHasWon: null
+    });
   }
 
   playerHasWon(playerMarker) {
@@ -224,7 +232,7 @@ export default class Game extends React.Component {
     this.setState({
       selectedMove: moveHistoryIndex,
       playerWhosTurnItIs: this.nextPlayer(this.playerFromMarker(this.state.moves[moveHistoryIndex - 1].playerMarker))
-    });
+    }, this.checkAndApplyWinConditions);
   }
 
   playerFromMarker(marker) {
