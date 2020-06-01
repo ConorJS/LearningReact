@@ -49,8 +49,11 @@ export default class Board extends React.Component {
    * @param {*} playerMarker The marker of the player that 'owns' the square (can be null if none does).
    */
   renderSquare(x, y, playerMarker) {
+    const itemKey = `square_x_${x}_y_${y}`;
+
     return <Square
-      key={`square_x_${x}_y_${y}`}
+      key={itemKey}
+      id={itemKey}
       clickHandler={() => this.squareClickHandler(x, y)}
       playerMarker={playerMarker}>
     </Square>;

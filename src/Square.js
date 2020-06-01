@@ -5,6 +5,7 @@ export default class Square extends React.Component {
     return (
       <button
         className="square"
+        id={this.props.id}
         onClick={this.props.clickHandler}>
         {this.props.playerMarker}
       </button>
